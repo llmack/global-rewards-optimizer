@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FlightRoute, CreditCard, LoyaltyProgram, TransferOption, TransferRecommendation } from '../types';
 import { Search, Plane, Calendar, MapPin, TrendingUp, Star, Heart, CreditCard as CreditCardIcon, ArrowRight, Lightbulb, Target } from 'lucide-react';
 import { airports, searchAirports } from '../data/airports';
+import { generateFlightRoutes } from '../data/mockData';
 import { saveUserData, getUserData, trackEngagement } from '../utils/storage';
 
 interface FlightSearchProps {
@@ -19,6 +20,7 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [], use
   const [savedFlights, setSavedFlights] = useState<string[]>([]);
   const [travelDate, setTravelDate] = useState('');
   const [showTransferAnalysis, setShowTransferAnalysis] = useState<string | null>(null);
+  const [dynamicRoutes, setDynamicRoutes] = useState<FlightRoute[]>(routes);
 
   React.useEffect(() => {
     const userData = getUserData();
@@ -26,8 +28,20 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [], use
     
     // Set default date to today
     const today = new Date();
-    setTravelDate(today.toISOString().split('T')[0]);
+    const todayString = today.toISOString().split('T')[0];
+    setTravelDate(todayString);
+    
+    // Generate initial routes based on today's date
+    setDynamicRoutes(generateFlightRoutes(todayString));
   }, []);
+
+  // Update routes when travel date changes
+  React.useEffect(() => {
+    if (travelDate) {
+      const newRoutes = generateFlightRoutes(travelDate);
+      setDynamicRoutes(newRoutes);
+    }
+  }, [travelDate]);
 
   const formatPoints = (points: number) => points.toLocaleString();
   const formatCurrency = (amount: number) => `$${amount.toLocaleString()}`;
@@ -248,6 +262,12 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [], use
       metadata: { from: fromCity, to: toCity, date: travelDate }
     });
     
+    // Update routes based on the search date
+    if (travelDate) {
+      const newRoutes = generateFlightRoutes(travelDate);
+      setDynamicRoutes(newRoutes);
+    }
+    
     console.log('Searching flights from Philadelphia area to India');
   };
 
@@ -384,9 +404,14 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [], use
         <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
           <Plane className="h-5 w-5" />
           <span>Available Routes from Philadelphia Area</span>
+          {travelDate && (
+            <span className="text-sm text-gray-500 font-normal">
+              (Based on {new Date(travelDate).toLocaleDateString()})
+            </span>
+          )}
         </h3>
         
-        {routes.map((route) => {
+        {dynamicRoutes.map((route) => {
           const economyTransferOptions = calculateTransferOptions(route, 'economy');
           const businessTransferOptions = calculateTransferOptions(route, 'business');
           const economyRecommendations = generateRecommendations(route, 'economy');

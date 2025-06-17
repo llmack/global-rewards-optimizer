@@ -234,83 +234,103 @@ export const indianDestinations: Destination[] = [
   }
 ];
 
-export const flightRoutes: FlightRoute[] = [
-  {
-    id: '1',
-    from: 'PHL',
-    to: 'BOM',
-    airline: 'Air France',
-    date: '2025-01-15',
-    returnDate: '2025-01-29',
-    economyPoints: 85000,
-    businessPoints: 170000,
-    economyCash: 1200,
-    businessCash: 4500,
-    availability: 'good'
-  },
-  {
-    id: '2',
-    from: 'JFK',
-    to: 'DEL',
-    airline: 'Singapore Airlines',
-    date: '2025-01-12',
-    returnDate: '2025-01-26',
-    economyPoints: 90000,
-    businessPoints: 160000,
-    economyCash: 1350,
-    businessCash: 5200,
-    availability: 'limited'
-  },
-  {
-    id: '3',
-    from: 'EWR',
-    to: 'BLR',
-    airline: 'Turkish Airlines',
-    date: '2025-01-18',
-    returnDate: '2025-02-01',
-    economyPoints: 75000,
-    businessPoints: 145000,
-    economyCash: 1100,
-    businessCash: 3900,
-    availability: 'good'
-  },
-  {
-    id: '4',
-    from: 'PHL',
-    to: 'COK',
-    airline: 'British Airways',
-    date: '2025-01-20',
-    returnDate: '2025-02-03',
-    economyPoints: 95000,
-    businessPoints: 180000,
-    economyCash: 1450,
-    businessCash: 4800,
-    availability: 'waitlist'
-  },
-  {
-    id: '5',
-    from: 'LGA',
-    to: 'BOM',
-    airline: 'Delta',
-    date: '2025-01-22',
-    returnDate: '2025-02-05',
-    economyPoints: 88000,
-    businessPoints: 165000,
-    economyCash: 1300,
-    businessCash: 4200,
-    availability: 'good'
-  },
-  {
-    id: '6',
-    from: 'JFK',
-    to: 'GOI',
-    airline: 'United Airlines',
-    date: '2025-01-25',
-    returnDate: '2025-02-08',
-    economyPoints: 92000,
-    businessPoints: 175000,
-    economyCash: 1400,
-    businessCash: 4600,
-    availability: 'limited'
-  }
-];
+// Function to generate dynamic flight routes based on search date
+export const generateFlightRoutes = (searchDate?: string): FlightRoute[] => {
+  const baseDate = searchDate ? new Date(searchDate) : new Date();
+  
+  // Helper function to format date as YYYY-MM-DD
+  const formatDate = (date: Date) => {
+    return date.toISOString().split('T')[0];
+  };
+  
+  // Helper function to add days to a date
+  const addDays = (date: Date, days: number) => {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+  };
+
+  return [
+    {
+      id: '1',
+      from: 'PHL',
+      to: 'BOM',
+      airline: 'Air France',
+      date: formatDate(baseDate),
+      returnDate: formatDate(addDays(baseDate, 14)),
+      economyPoints: 85000,
+      businessPoints: 170000,
+      economyCash: 1200,
+      businessCash: 4500,
+      availability: 'good'
+    },
+    {
+      id: '2',
+      from: 'JFK',
+      to: 'DEL',
+      airline: 'Singapore Airlines',
+      date: formatDate(addDays(baseDate, 2)),
+      returnDate: formatDate(addDays(baseDate, 16)),
+      economyPoints: 90000,
+      businessPoints: 160000,
+      economyCash: 1350,
+      businessCash: 5200,
+      availability: 'limited'
+    },
+    {
+      id: '3',
+      from: 'EWR',
+      to: 'BLR',
+      airline: 'Turkish Airlines',
+      date: formatDate(addDays(baseDate, 5)),
+      returnDate: formatDate(addDays(baseDate, 19)),
+      economyPoints: 75000,
+      businessPoints: 145000,
+      economyCash: 1100,
+      businessCash: 3900,
+      availability: 'good'
+    },
+    {
+      id: '4',
+      from: 'PHL',
+      to: 'COK',
+      airline: 'British Airways',
+      date: formatDate(addDays(baseDate, 7)),
+      returnDate: formatDate(addDays(baseDate, 21)),
+      economyPoints: 95000,
+      businessPoints: 180000,
+      economyCash: 1450,
+      businessCash: 4800,
+      availability: 'waitlist'
+    },
+    {
+      id: '5',
+      from: 'LGA',
+      to: 'BOM',
+      airline: 'Delta',
+      date: formatDate(addDays(baseDate, 10)),
+      returnDate: formatDate(addDays(baseDate, 24)),
+      economyPoints: 88000,
+      businessPoints: 165000,
+      economyCash: 1300,
+      businessCash: 4200,
+      availability: 'good'
+    },
+    {
+      id: '6',
+      from: 'JFK',
+      to: 'GOI',
+      airline: 'United Airlines',
+      date: formatDate(addDays(baseDate, 12)),
+      returnDate: formatDate(addDays(baseDate, 26)),
+      economyPoints: 92000,
+      businessPoints: 175000,
+      economyCash: 1400,
+      businessCash: 4600,
+      availability: 'limited'
+    }
+  ];
+};
+
+// Export the default static routes for backward compatibility
+export const flightRoutes: FlightRoute[] = generateFlightRoutes();

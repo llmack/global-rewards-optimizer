@@ -10,7 +10,7 @@ import TransferPartners from './components/TransferPartners';
 import DestinationGuide from './components/DestinationGuide';
 import { 
   transferPartners, 
-  flightRoutes, 
+  generateFlightRoutes, 
   indianDestinations 
 } from './data/mockData';
 import { CreditCard, LoyaltyProgram } from './types';
@@ -75,8 +75,8 @@ function App() {
     );
   };
 
-  // Filter flights to only show those from major East Coast airports
-  const eastCoastFlights = flightRoutes.filter(route => 
+  // Generate dynamic flight routes based on current date
+  const eastCoastFlights = generateFlightRoutes().filter(route => 
     ['PHL', 'EWR', 'JFK', 'LGA'].includes(route.from)
   );
 
