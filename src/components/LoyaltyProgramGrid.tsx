@@ -20,7 +20,8 @@ const LoyaltyProgramGrid: React.FC<LoyaltyProgramGridProps> = ({
 
   useEffect(() => {
     const userData = getUserData();
-    setProgramMiles(userData.programMiles);
+    // Defensive check to ensure programMiles exists and is an object
+    setProgramMiles(userData.programMiles || {});
   }, []);
 
   const formatMiles = (miles: number) => {
@@ -102,7 +103,11 @@ const LoyaltyProgramGrid: React.FC<LoyaltyProgramGridProps> = ({
   };
 
   const getDisplayMiles = (program: LoyaltyProgram) => {
-    return programMiles[program.id] !== undefined ? programMiles[program.id] : program.currentMiles;
+    // Defensive check to ensure programMiles exists and is an object
+    if (!programMiles || typeof programMiles !== 'object') {
+      return program.currentMiles || 0;
+    }
+    return programMiles[program.id] !== undefined ? programMiles[program.id] : (program.currentMiles || 0);
   };
 
   return (
@@ -192,14 +197,14 @@ const LoyaltyProgramGrid: React.FC<LoyaltyProgramGridProps> = ({
                 <div className="flex items-center space-x-2 text-blue-600">
                   <Users className="h-4 w-4" />
                   <span className="text-sm font-medium">
-                    {program.partners.length} alliance partners
+                    {program.partners?.length || 0} alliance partners
                   </span>
                 </div>
                 
                 <div className="pt-2">
                   <div className="text-xs text-gray-500 mb-1">Key Partners</div>
                   <div className="flex flex-wrap gap-1">
-                    {program.partners.slice(0, 3).map((partner, index) => (
+                    {(program.partners || []).slice(0, 3).map((partner, index) => (
                       <span
                         key={index}
                         className="text-xs bg-gray-100 px-2 py-1 rounded-full"
@@ -207,9 +212,9 @@ const LoyaltyProgramGrid: React.FC<LoyaltyProgramGridProps> = ({
                         {partner}
                       </span>
                     ))}
-                    {program.partners.length > 3 && (
+                    {(program.partners?.length || 0) > 3 && (
                       <span className="text-xs text-gray-400">
-                        +{program.partners.length - 3} more
+                        +{(program.partners?.length || 0) - 3} more
                       </span>
                     )}
                   </div>
