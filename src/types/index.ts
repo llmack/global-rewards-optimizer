@@ -78,3 +78,16 @@ export interface EngagementEvent {
   timestamp: number;
   metadata?: Record<string, any>;
 }
+
+export interface TransferOption {
+  card: CreditCard;
+  canTransfer: boolean;
+  availablePoints: number;
+  signupBonus: number;
+  totalPotentialPoints: number;
+  pointsNeeded: number;
+  pointsShortfall: number;
+  canAffordNow: boolean;
+  canAffordWithBonus: boolean;
+  coveragePercentage: number;
+}

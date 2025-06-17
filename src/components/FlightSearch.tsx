@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { FlightRoute } from '../types';
-import { Search, Plane, Calendar, MapPin, TrendingUp, Star, Heart } from 'lucide-react';
+import { FlightRoute, CreditCard } from '../types';
+import { Search, Plane, Calendar, MapPin, TrendingUp, Star, Heart, CreditCard as CreditCardIcon, ArrowRight } from 'lucide-react';
 import { airports, searchAirports } from '../data/airports';
 import { saveUserData, getUserData, trackEngagement } from '../utils/storage';
 
 interface FlightSearchProps {
   routes: FlightRoute[];
+  userCards?: CreditCard[];
 }
 
-const FlightSearch: React.FC<FlightSearchProps> = ({ routes }) => {
+const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) => {
   const [fromCity, setFromCity] = useState('');
   const [fromSuggestions, setFromSuggestions] = useState<typeof airports>([]);
   const [toCity, setToCity] = useState('');
@@ -16,6 +17,7 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes }) => {
   const [selectedRoute, setSelectedRoute] = useState<FlightRoute | null>(null);
   const [savedFlights, setSavedFlights] = useState<string[]>([]);
   const [travelDate, setTravelDate] = useState('');
+  const [showTransferAnalysis, setShowTransferAnalysis] = useState<string | null>(null);
 
   React.useEffect(() => {
     const userData = getUserData();
@@ -44,6 +46,45 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes }) => {
 
   const calculateValue = (points: number, cash: number) => {
     return ((cash / points) * 100).toFixed(2);
+  };
+
+  // Calculate transfer possibilities for a specific flight
+  const calculateTransferOptions = (route: FlightRoute, cabin: 'economy' | 'business') => {
+    const pointsNeeded = cabin === 'economy' ? route.economyPoints : route.businessPoints;
+    
+    return userCards.map(card => {
+      const availablePoints = card.currentPoints || 0;
+      const signupBonus = card.signupBonus || 0;
+      const totalPotentialPoints = availablePoints + signupBonus;
+      
+      // Check if this card can transfer to the route's airline
+      const canTransfer = card.transferPartners.some(partner => 
+        partner.toLowerCase().includes(route.airline.toLowerCase()) ||
+        route.airline.toLowerCase().includes(partner.toLowerCase()) ||
+        // Common transfer partners that work with multiple airlines
+        ['Chase', 'American Express', 'Capital One'].some(bank => 
+          card.bank.includes(bank) && 
+          ['Singapore Airlines', 'Air France', 'British Airways', 'Turkish Airlines'].includes(partner)
+        )
+      );
+
+      const pointsShortfall = Math.max(0, pointsNeeded - availablePoints);
+      const canAffordWithBonus = totalPotentialPoints >= pointsNeeded;
+      const canAffordNow = availablePoints >= pointsNeeded;
+
+      return {
+        card,
+        canTransfer,
+        availablePoints,
+        signupBonus,
+        totalPotentialPoints,
+        pointsNeeded,
+        pointsShortfall,
+        canAffordNow,
+        canAffordWithBonus,
+        coveragePercentage: Math.min(100, (availablePoints / pointsNeeded) * 100)
+      };
+    }).filter(option => option.canTransfer || option.availablePoints > 0);
   };
 
   const handleFromSearch = (query: string) => {
@@ -93,17 +134,6 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes }) => {
     saveUserData({ savedFlights: newSavedFlights });
   };
 
-  const getMaxDate = () => {
-    const today = new Date();
-    const oneYearFromNow = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
-    return oneYearFromNow.toISOString().split('T')[0];
-  };
-
-  const getMinDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
-
   const handleSearchFlights = () => {
     trackEngagement({
       type: 'click',
@@ -119,6 +149,27 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes }) => {
     
     // In a real app, this would trigger a new search
     console.log('Searching flights from Philadelphia area to India');
+  };
+
+  const toggleTransferAnalysis = (routeId: string) => {
+    setShowTransferAnalysis(showTransferAnalysis === routeId ? null : routeId);
+    
+    trackEngagement({
+      type: 'click',
+      element: 'toggle_transfer_analysis',
+      metadata: { routeId }
+    });
+  };
+
+  const getMaxDate = () => {
+    const today = new Date();
+    const oneYearFromNow = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+    return oneYearFromNow.toISOString().split('T')[0];
+  };
+
+  const getMinDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
   };
 
   return (
@@ -235,85 +286,229 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes }) => {
           <span>Available Routes from Philadelphia Area</span>
         </h3>
         
-        {routes.map((route) => (
-          <div
-            key={route.id}
-            className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => {
-              setSelectedRoute(route);
-              trackEngagement({
-                type: 'click',
-                element: 'flight_route_details',
-                metadata: { routeId: route.id, from: route.from, to: route.to }
-              });
-            }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <MapPin className="h-4 w-4 text-gray-500" />
-                  <span className="font-semibold">{route.from} → {route.to}</span>
+        {routes.map((route) => {
+          const economyTransferOptions = calculateTransferOptions(route, 'economy');
+          const businessTransferOptions = calculateTransferOptions(route, 'business');
+          const showAnalysis = showTransferAnalysis === route.id;
+          
+          return (
+            <div key={route.id} className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="h-4 w-4 text-gray-500" />
+                      <span className="font-semibold">{route.from} → {route.to}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-gray-600">{route.date}</span>
+                    </div>
+                    <span className="text-sm font-medium text-blue-600">{route.airline}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getAvailabilityColor(route.availability)}`}>
+                      {route.availability}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSaveFlight(route.id);
+                      }}
+                      className={`p-2 rounded-full transition-colors ${
+                        savedFlights.includes(route.id)
+                          ? 'text-red-500 hover:text-red-600'
+                          : 'text-gray-400 hover:text-red-500'
+                      }`}
+                    >
+                      <Heart className={`h-4 w-4 ${savedFlights.includes(route.id) ? 'fill-current' : ''}`} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Calendar className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-600">{route.date}</span>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">Economy</div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-lg">{formatPoints(route.economyPoints)} pts</span>
+                      <span className="text-sm text-gray-500">or {formatCurrency(route.economyCash)}</span>
+                    </div>
+                    <div className="flex items-center space-x-1 mt-1">
+                      <TrendingUp className="h-3 w-3 text-green-500" />
+                      <span className="text-xs text-green-600">
+                        {calculateValue(route.economyPoints, route.economyCash)}¢/point
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 p-3 rounded-lg border border-yellow-200">
+                    <div className="text-sm text-gray-600 mb-1 flex items-center space-x-1">
+                      <Star className="h-3 w-3 text-yellow-500" />
+                      <span>Business Class</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-lg">{formatPoints(route.businessPoints)} pts</span>
+                      <span className="text-sm text-gray-500">or {formatCurrency(route.businessCash)}</span>
+                    </div>
+                    <div className="flex items-center space-x-1 mt-1">
+                      <TrendingUp className="h-3 w-3 text-green-500" />
+                      <span className="text-xs text-green-600">
+                        {calculateValue(route.businessPoints, route.businessCash)}¢/point
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-sm font-medium text-blue-600">{route.airline}</span>
+
+                {userCards.length > 0 && (
+                  <button
+                    onClick={() => toggleTransferAnalysis(route.id)}
+                    className="w-full bg-purple-50 border border-purple-200 text-purple-700 py-2 px-4 rounded-lg hover:bg-purple-100 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <CreditCardIcon className="h-4 w-4" />
+                    <span>{showAnalysis ? 'Hide' : 'Show'} Your Points Analysis</span>
+                    <ArrowRight className={`h-4 w-4 transition-transform ${showAnalysis ? 'rotate-90' : ''}`} />
+                  </button>
+                )}
               </div>
-              <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getAvailabilityColor(route.availability)}`}>
-                  {route.availability}
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSaveFlight(route.id);
-                  }}
-                  className={`p-2 rounded-full transition-colors ${
-                    savedFlights.includes(route.id)
-                      ? 'text-red-500 hover:text-red-600'
-                      : 'text-gray-400 hover:text-red-500'
-                  }`}
-                >
-                  <Heart className={`h-4 w-4 ${savedFlights.includes(route.id) ? 'fill-current' : ''}`} />
-                </button>
-              </div>
+
+              {/* Transfer Analysis Panel */}
+              {showAnalysis && userCards.length > 0 && (
+                <div className="border-t border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50 p-4">
+                  <h4 className="font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                    <CreditCardIcon className="h-5 w-5 text-purple-600" />
+                    <span>Your Points Transfer Options</span>
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Economy Analysis */}
+                    <div>
+                      <h5 className="font-medium text-gray-800 mb-3">Economy Class ({formatPoints(route.economyPoints)} pts needed)</h5>
+                      <div className="space-y-3">
+                        {economyTransferOptions.map((option, index) => (
+                          <div key={index} className="bg-white p-3 rounded-lg border border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${option.card.color}`}></div>
+                                <span className="font-medium text-sm">{option.card.name}</span>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold text-gray-900">
+                                  {formatPoints(option.availablePoints)} pts
+                                </div>
+                                {option.signupBonus > 0 && (
+                                  <div className="text-xs text-green-600">
+                                    +{formatPoints(option.signupBonus)} bonus
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-1">
+                              {option.canAffordNow ? (
+                                <div className="flex items-center space-x-2 text-green-600">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  <span className="text-xs font-medium">Can book now!</span>
+                                </div>
+                              ) : option.canAffordWithBonus ? (
+                                <div className="flex items-center space-x-2 text-blue-600">
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                  <span className="text-xs font-medium">Can book with signup bonus</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-2 text-orange-600">
+                                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                  <span className="text-xs font-medium">
+                                    Need {formatPoints(option.pointsShortfall)} more points
+                                  </span>
+                                </div>
+                              )}
+                              
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${Math.min(100, option.coveragePercentage)}%` }}
+                                ></div>
+                              </div>
+                              <div className="text-xs text-gray-600">
+                                {option.coveragePercentage.toFixed(0)}% coverage
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Business Analysis */}
+                    <div>
+                      <h5 className="font-medium text-gray-800 mb-3">Business Class ({formatPoints(route.businessPoints)} pts needed)</h5>
+                      <div className="space-y-3">
+                        {businessTransferOptions.map((option, index) => (
+                          <div key={index} className="bg-white p-3 rounded-lg border border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${option.card.color}`}></div>
+                                <span className="font-medium text-sm">{option.card.name}</span>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold text-gray-900">
+                                  {formatPoints(option.availablePoints)} pts
+                                </div>
+                                {option.signupBonus > 0 && (
+                                  <div className="text-xs text-green-600">
+                                    +{formatPoints(option.signupBonus)} bonus
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-1">
+                              {option.canAffordNow ? (
+                                <div className="flex items-center space-x-2 text-green-600">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  <span className="text-xs font-medium">Can book now!</span>
+                                </div>
+                              ) : option.canAffordWithBonus ? (
+                                <div className="flex items-center space-x-2 text-blue-600">
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                  <span className="text-xs font-medium">Can book with signup bonus</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-2 text-orange-600">
+                                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                  <span className="text-xs font-medium">
+                                    Need {formatPoints(option.pointsShortfall)} more points
+                                  </span>
+                                </div>
+                              )}
+                              
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-gradient-to-r from-yellow-500 to-orange-500 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${Math.min(100, option.coveragePercentage)}%` }}
+                                ></div>
+                              </div>
+                              <div className="text-xs text-gray-600">
+                                {option.coveragePercentage.toFixed(0)}% coverage
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {economyTransferOptions.length === 0 && businessTransferOptions.length === 0 && (
+                    <div className="text-center py-6 text-gray-500">
+                      <CreditCardIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>No compatible transfer partners found for this route.</p>
+                      <p className="text-sm">Consider cards with {route.airline} partnerships.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Economy</div>
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-lg">{formatPoints(route.economyPoints)} pts</span>
-                  <span className="text-sm text-gray-500">or {formatCurrency(route.economyCash)}</span>
-                </div>
-                <div className="flex items-center space-x-1 mt-1">
-                  <TrendingUp className="h-3 w-3 text-green-500" />
-                  <span className="text-xs text-green-600">
-                    {calculateValue(route.economyPoints, route.economyCash)}¢/point
-                  </span>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 p-3 rounded-lg border border-yellow-200">
-                <div className="text-sm text-gray-600 mb-1 flex items-center space-x-1">
-                  <Star className="h-3 w-3 text-yellow-500" />
-                  <span>Business Class</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-lg">{formatPoints(route.businessPoints)} pts</span>
-                  <span className="text-sm text-gray-500">or {formatCurrency(route.businessCash)}</span>
-                </div>
-                <div className="flex items-center space-x-1 mt-1">
-                  <TrendingUp className="h-3 w-3 text-green-500" />
-                  <span className="text-xs text-green-600">
-                    {calculateValue(route.businessPoints, route.businessCash)}¢/point
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

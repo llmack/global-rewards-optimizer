@@ -75,7 +75,7 @@ function App() {
         )}
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          <FlightSearch routes={eastCoastFlights} />
+          <FlightSearch routes={eastCoastFlights} userCards={userCards} />
           <DestinationGuide destinations={indianDestinations} />
         </div>
 
