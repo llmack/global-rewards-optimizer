@@ -16,7 +16,7 @@ const LoyaltyProgramSearch: React.FC<LoyaltyProgramSearchProps> = ({ onAddProgra
 
   useEffect(() => {
     const userData = getUserData();
-    setSavedPrograms(userData.savedPrograms);
+    setSavedPrograms(userData.savedPrograms || []);
   }, []);
 
   // Handle ESC key to close modal
@@ -49,9 +49,10 @@ const LoyaltyProgramSearch: React.FC<LoyaltyProgramSearchProps> = ({ onAddProgra
       metadata: { programId }
     });
 
-    const newSavedPrograms = savedPrograms.includes(programId)
-      ? savedPrograms.filter(id => id !== programId)
-      : [...savedPrograms, programId];
+    const currentSavedPrograms = savedPrograms || [];
+    const newSavedPrograms = currentSavedPrograms.includes(programId)
+      ? currentSavedPrograms.filter(id => id !== programId)
+      : [...currentSavedPrograms, programId];
     
     setSavedPrograms(newSavedPrograms);
     saveUserData({ savedPrograms: newSavedPrograms });
@@ -147,12 +148,12 @@ const LoyaltyProgramSearch: React.FC<LoyaltyProgramSearchProps> = ({ onAddProgra
                     handleSaveProgram(program.id);
                   }}
                   className={`p-1 rounded-full transition-colors ${
-                    savedPrograms.includes(program.id)
+                    (savedPrograms || []).includes(program.id)
                       ? 'text-red-500 hover:text-red-600'
                       : 'text-gray-400 hover:text-red-500'
                   }`}
                 >
-                  <Heart className={`h-4 w-4 ${savedPrograms.includes(program.id) ? 'fill-current' : ''}`} />
+                  <Heart className={`h-4 w-4 ${(savedPrograms || []).includes(program.id) ? 'fill-current' : ''}`} />
                 </button>
                 <button
                   onClick={() => handleProgramClick(program)}
@@ -251,13 +252,13 @@ const LoyaltyProgramSearch: React.FC<LoyaltyProgramSearchProps> = ({ onAddProgra
                   <button
                     onClick={() => handleSaveProgram(selectedProgram.id)}
                     className={`px-6 py-3 rounded-lg border transition-colors flex items-center space-x-2 ${
-                      savedPrograms.includes(selectedProgram.id)
+                      (savedPrograms || []).includes(selectedProgram.id)
                         ? 'bg-red-50 border-red-200 text-red-700'
                         : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
                     }`}
                   >
-                    <Heart className={`h-5 w-5 ${savedPrograms.includes(selectedProgram.id) ? 'fill-current' : ''}`} />
-                    <span>{savedPrograms.includes(selectedProgram.id) ? 'Saved' : 'Save'}</span>
+                    <Heart className={`h-5 w-5 ${(savedPrograms || []).includes(selectedProgram.id) ? 'fill-current' : ''}`} />
+                    <span>{(savedPrograms || []).includes(selectedProgram.id) ? 'Saved' : 'Save'}</span>
                   </button>
                   <button
                     onClick={handleCloseModal}
