@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { FlightRoute, CreditCard } from '../types';
-import { Search, Plane, Calendar, MapPin, TrendingUp, Star, Heart, CreditCard as CreditCardIcon, ArrowRight } from 'lucide-react';
+import { FlightRoute, CreditCard, LoyaltyProgram, TransferOption, TransferRecommendation } from '../types';
+import { Search, Plane, Calendar, MapPin, TrendingUp, Star, Heart, CreditCard as CreditCardIcon, ArrowRight, Lightbulb, Target } from 'lucide-react';
 import { airports, searchAirports } from '../data/airports';
 import { saveUserData, getUserData, trackEngagement } from '../utils/storage';
 
 interface FlightSearchProps {
   routes: FlightRoute[];
   userCards?: CreditCard[];
+  userPrograms?: LoyaltyProgram[];
 }
 
-const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) => {
+const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [], userPrograms = [] }) => {
   const [fromCity, setFromCity] = useState('');
   const [fromSuggestions, setFromSuggestions] = useState<typeof airports>([]);
   const [toCity, setToCity] = useState('');
@@ -48,11 +49,13 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) =
     return ((cash / points) * 100).toFixed(2);
   };
 
-  // Calculate transfer possibilities for a specific flight
-  const calculateTransferOptions = (route: FlightRoute, cabin: 'economy' | 'business') => {
+  // Enhanced transfer calculation with detailed analysis
+  const calculateTransferOptions = (route: FlightRoute, cabin: 'economy' | 'business'): TransferOption[] => {
     const pointsNeeded = cabin === 'economy' ? route.economyPoints : route.businessPoints;
-    
-    return userCards.map(card => {
+    const options: TransferOption[] = [];
+
+    // Process credit cards
+    userCards.forEach(card => {
       const availablePoints = card.currentPoints || 0;
       const signupBonus = card.signupBonus || 0;
       const totalPotentialPoints = availablePoints + signupBonus;
@@ -61,30 +64,134 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) =
       const canTransfer = card.transferPartners.some(partner => 
         partner.toLowerCase().includes(route.airline.toLowerCase()) ||
         route.airline.toLowerCase().includes(partner.toLowerCase()) ||
-        // Common transfer partners that work with multiple airlines
-        ['Chase', 'American Express', 'Capital One'].some(bank => 
-          card.bank.includes(bank) && 
-          ['Singapore Airlines', 'Air France', 'British Airways', 'Turkish Airlines'].includes(partner)
-        )
+        // Enhanced transfer partner matching
+        (route.airline === 'Air France' && ['Air France', 'Flying Blue'].some(p => partner.includes(p))) ||
+        (route.airline === 'British Airways' && ['British Airways', 'Avios'].some(p => partner.includes(p))) ||
+        (route.airline === 'Singapore Airlines' && partner.includes('Singapore')) ||
+        (route.airline === 'Turkish Airlines' && partner.includes('Turkish')) ||
+        (route.airline === 'Delta' && partner.includes('Delta')) ||
+        (route.airline === 'United Airlines' && partner.includes('United'))
       );
 
-      const pointsShortfall = Math.max(0, pointsNeeded - availablePoints);
-      const canAffordWithBonus = totalPotentialPoints >= pointsNeeded;
-      const canAffordNow = availablePoints >= pointsNeeded;
+      if (canTransfer || availablePoints > 0) {
+        const transferRatio = '1:1'; // Most credit card transfers are 1:1
+        const finalMiles = availablePoints; // 1:1 transfer
+        const pointsShortfall = Math.max(0, pointsNeeded - availablePoints);
+        const canAffordWithBonus = totalPotentialPoints >= pointsNeeded;
+        const canAffordNow = availablePoints >= pointsNeeded;
 
-      return {
-        card,
-        canTransfer,
-        availablePoints,
-        signupBonus,
-        totalPotentialPoints,
-        pointsNeeded,
-        pointsShortfall,
-        canAffordNow,
-        canAffordWithBonus,
-        coveragePercentage: Math.min(100, (availablePoints / pointsNeeded) * 100)
-      };
-    }).filter(option => option.canTransfer || option.availablePoints > 0);
+        options.push({
+          card,
+          canTransfer,
+          availablePoints,
+          signupBonus,
+          totalPotentialPoints,
+          pointsNeeded,
+          pointsShortfall,
+          canAffordNow,
+          canAffordWithBonus,
+          coveragePercentage: Math.min(100, (availablePoints / pointsNeeded) * 100),
+          transferRatio,
+          finalMiles
+        });
+      }
+    });
+
+    // Process loyalty programs
+    userPrograms.forEach(program => {
+      const availableMiles = program.currentMiles || 0;
+      
+      // Check if this program can be used for the route
+      const canTransfer = 
+        program.airline.toLowerCase().includes(route.airline.toLowerCase()) ||
+        route.airline.toLowerCase().includes(program.airline.toLowerCase()) ||
+        program.partners.some(partner => 
+          partner.toLowerCase().includes(route.airline.toLowerCase()) ||
+          route.airline.toLowerCase().includes(partner.toLowerCase())
+        );
+
+      if (canTransfer || availableMiles > 0) {
+        const transferRatio = '1:1'; // Most airline-to-airline transfers are 1:1
+        const finalMiles = availableMiles;
+        const pointsShortfall = Math.max(0, pointsNeeded - availableMiles);
+        const canAffordNow = availableMiles >= pointsNeeded;
+
+        options.push({
+          program,
+          canTransfer,
+          availablePoints: availableMiles,
+          signupBonus: 0,
+          totalPotentialPoints: availableMiles,
+          pointsNeeded,
+          pointsShortfall,
+          canAffordNow,
+          canAffordWithBonus: canAffordNow,
+          coveragePercentage: Math.min(100, (availableMiles / pointsNeeded) * 100),
+          transferRatio,
+          finalMiles
+        });
+      }
+    });
+
+    return options.sort((a, b) => b.coveragePercentage - a.coveragePercentage);
+  };
+
+  // Generate smart recommendations
+  const generateRecommendations = (route: FlightRoute, cabin: 'economy' | 'business'): TransferRecommendation[] => {
+    const pointsNeeded = cabin === 'economy' ? route.economyPoints : route.businessPoints;
+    const options = calculateTransferOptions(route, cabin);
+    const totalAvailable = options.reduce((sum, opt) => sum + opt.availablePoints, 0);
+    const shortfall = Math.max(0, pointsNeeded - totalAvailable);
+    
+    const recommendations: TransferRecommendation[] = [];
+
+    if (shortfall > 0) {
+      // Recommend credit cards that transfer to this airline
+      if (route.airline === 'Air France') {
+        recommendations.push({
+          type: 'credit_card',
+          name: 'Chase Sapphire Preferred',
+          description: 'Transfers 1:1 to Air France Flying Blue, 80K signup bonus',
+          pointsNeeded: Math.min(shortfall, 80000),
+          estimatedValue: '2.1¢/point',
+          difficulty: 'easy'
+        });
+      }
+      
+      if (route.airline === 'Singapore Airlines') {
+        recommendations.push({
+          type: 'credit_card',
+          name: 'American Express Gold',
+          description: 'Transfers 1:1 to Singapore KrisFlyer, 90K signup bonus',
+          pointsNeeded: Math.min(shortfall, 90000),
+          estimatedValue: '2.8¢/point',
+          difficulty: 'medium'
+        });
+      }
+
+      if (route.airline === 'Turkish Airlines') {
+        recommendations.push({
+          type: 'credit_card',
+          name: 'Capital One Venture X',
+          description: 'Transfers 1:1.6 to Turkish Miles&Smiles (60% bonus until Feb 29)',
+          pointsNeeded: Math.min(shortfall, 100000),
+          estimatedValue: '3.2¢/point',
+          difficulty: 'easy'
+        });
+      }
+
+      // Recommend partner programs
+      recommendations.push({
+        type: 'loyalty_program',
+        name: `${route.airline} Loyalty Program`,
+        description: `Sign up for ${route.airline} frequent flyer program and earn miles through flights`,
+        pointsNeeded: shortfall,
+        estimatedValue: '1.5¢/mile',
+        difficulty: 'hard'
+      });
+    }
+
+    return recommendations.slice(0, 3);
   };
 
   const handleFromSearch = (query: string) => {
@@ -141,13 +248,6 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) =
       metadata: { from: fromCity, to: toCity, date: travelDate }
     });
     
-    // Filter routes based on search criteria or show all Philadelphia area flights
-    const phillyAirports = ['PHL', 'EWR', 'JFK', 'LGA'];
-    const filteredRoutes = routes.filter(route => 
-      phillyAirports.includes(route.from)
-    );
-    
-    // In a real app, this would trigger a new search
     console.log('Searching flights from Philadelphia area to India');
   };
 
@@ -289,6 +389,8 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) =
         {routes.map((route) => {
           const economyTransferOptions = calculateTransferOptions(route, 'economy');
           const businessTransferOptions = calculateTransferOptions(route, 'business');
+          const economyRecommendations = generateRecommendations(route, 'economy');
+          const businessRecommendations = generateRecommendations(route, 'business');
           const showAnalysis = showTransferAnalysis === route.id;
           
           return (
@@ -359,7 +461,7 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) =
                   </div>
                 </div>
 
-                {userCards.length > 0 && (
+                {(userCards.length > 0 || userPrograms.length > 0) && (
                   <button
                     onClick={() => toggleTransferAnalysis(route.id)}
                     className="w-full bg-purple-50 border border-purple-200 text-purple-700 py-2 px-4 rounded-lg hover:bg-purple-100 transition-colors flex items-center justify-center space-x-2"
@@ -371,29 +473,40 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) =
                 )}
               </div>
 
-              {/* Transfer Analysis Panel */}
-              {showAnalysis && userCards.length > 0 && (
+              {/* Enhanced Transfer Analysis Panel */}
+              {showAnalysis && (userCards.length > 0 || userPrograms.length > 0) && (
                 <div className="border-t border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50 p-4">
                   <h4 className="font-semibold text-gray-900 mb-4 flex items-center space-x-2">
                     <CreditCardIcon className="h-5 w-5 text-purple-600" />
-                    <span>Your Points Transfer Options</span>
+                    <span>Your Points & Miles Analysis</span>
                   </h4>
                   
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     {/* Economy Analysis */}
                     <div>
-                      <h5 className="font-medium text-gray-800 mb-3">Economy Class ({formatPoints(route.economyPoints)} pts needed)</h5>
-                      <div className="space-y-3">
+                      <h5 className="font-medium text-gray-800 mb-3 flex items-center space-x-2">
+                        <Target className="h-4 w-4" />
+                        <span>Economy Class ({formatPoints(route.economyPoints)} pts needed)</span>
+                      </h5>
+                      
+                      <div className="space-y-3 mb-4">
                         {economyTransferOptions.map((option, index) => (
                           <div key={index} className="bg-white p-3 rounded-lg border border-gray-200">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center space-x-2">
-                                <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${option.card.color}`}></div>
-                                <span className="font-medium text-sm">{option.card.name}</span>
+                                <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${
+                                  option.card ? option.card.color : option.program?.color
+                                }`}></div>
+                                <span className="font-medium text-sm">
+                                  {option.card ? option.card.name : option.program?.name}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  ({option.card ? 'Credit Card' : 'Loyalty Program'})
+                                </span>
                               </div>
                               <div className="text-right">
                                 <div className="text-sm font-semibold text-gray-900">
-                                  {formatPoints(option.availablePoints)} pts
+                                  {formatPoints(option.availablePoints)} {option.card ? 'pts' : 'miles'}
                                 </div>
                                 {option.signupBonus > 0 && (
                                   <div className="text-xs text-green-600">
@@ -403,22 +516,28 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) =
                               </div>
                             </div>
                             
-                            <div className="space-y-1">
+                            <div className="space-y-2">
+                              {option.canTransfer && (
+                                <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                  Transfer ratio: {option.transferRatio} → {formatPoints(option.finalMiles)} miles
+                                </div>
+                              )}
+                              
                               {option.canAffordNow ? (
                                 <div className="flex items-center space-x-2 text-green-600">
                                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                  <span className="text-xs font-medium">Can book now!</span>
+                                  <span className="text-xs font-medium">✅ Can book now!</span>
                                 </div>
                               ) : option.canAffordWithBonus ? (
                                 <div className="flex items-center space-x-2 text-blue-600">
                                   <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                  <span className="text-xs font-medium">Can book with signup bonus</span>
+                                  <span className="text-xs font-medium">🎯 Can book with signup bonus</span>
                                 </div>
                               ) : (
                                 <div className="flex items-center space-x-2 text-orange-600">
                                   <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                                   <span className="text-xs font-medium">
-                                    Need {formatPoints(option.pointsShortfall)} more points
+                                    ⚠️ Need {formatPoints(option.pointsShortfall)} more points
                                   </span>
                                 </div>
                               )}
@@ -436,22 +555,54 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) =
                           </div>
                         ))}
                       </div>
+
+                      {/* Economy Recommendations */}
+                      {economyRecommendations.length > 0 && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                          <h6 className="font-medium text-yellow-800 mb-2 flex items-center space-x-1">
+                            <Lightbulb className="h-4 w-4" />
+                            <span>Recommendations to Complete Booking</span>
+                          </h6>
+                          <div className="space-y-2">
+                            {economyRecommendations.map((rec, index) => (
+                              <div key={index} className="text-sm">
+                                <div className="font-medium text-yellow-900">{rec.name}</div>
+                                <div className="text-yellow-700">{rec.description}</div>
+                                <div className="text-xs text-yellow-600">
+                                  Value: {rec.estimatedValue} • Difficulty: {rec.difficulty}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Business Analysis */}
                     <div>
-                      <h5 className="font-medium text-gray-800 mb-3">Business Class ({formatPoints(route.businessPoints)} pts needed)</h5>
-                      <div className="space-y-3">
+                      <h5 className="font-medium text-gray-800 mb-3 flex items-center space-x-2">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        <span>Business Class ({formatPoints(route.businessPoints)} pts needed)</span>
+                      </h5>
+                      
+                      <div className="space-y-3 mb-4">
                         {businessTransferOptions.map((option, index) => (
                           <div key={index} className="bg-white p-3 rounded-lg border border-gray-200">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center space-x-2">
-                                <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${option.card.color}`}></div>
-                                <span className="font-medium text-sm">{option.card.name}</span>
+                                <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${
+                                  option.card ? option.card.color : option.program?.color
+                                }`}></div>
+                                <span className="font-medium text-sm">
+                                  {option.card ? option.card.name : option.program?.name}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  ({option.card ? 'Credit Card' : 'Loyalty Program'})
+                                </span>
                               </div>
                               <div className="text-right">
                                 <div className="text-sm font-semibold text-gray-900">
-                                  {formatPoints(option.availablePoints)} pts
+                                  {formatPoints(option.availablePoints)} {option.card ? 'pts' : 'miles'}
                                 </div>
                                 {option.signupBonus > 0 && (
                                   <div className="text-xs text-green-600">
@@ -461,22 +612,28 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) =
                               </div>
                             </div>
                             
-                            <div className="space-y-1">
+                            <div className="space-y-2">
+                              {option.canTransfer && (
+                                <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                  Transfer ratio: {option.transferRatio} → {formatPoints(option.finalMiles)} miles
+                                </div>
+                              )}
+                              
                               {option.canAffordNow ? (
                                 <div className="flex items-center space-x-2 text-green-600">
                                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                  <span className="text-xs font-medium">Can book now!</span>
+                                  <span className="text-xs font-medium">✅ Can book now!</span>
                                 </div>
                               ) : option.canAffordWithBonus ? (
                                 <div className="flex items-center space-x-2 text-blue-600">
                                   <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                  <span className="text-xs font-medium">Can book with signup bonus</span>
+                                  <span className="text-xs font-medium">🎯 Can book with signup bonus</span>
                                 </div>
                               ) : (
                                 <div className="flex items-center space-x-2 text-orange-600">
                                   <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                                   <span className="text-xs font-medium">
-                                    Need {formatPoints(option.pointsShortfall)} more points
+                                    ⚠️ Need {formatPoints(option.pointsShortfall)} more points
                                   </span>
                                 </div>
                               )}
@@ -494,6 +651,27 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes, userCards = [] }) =
                           </div>
                         ))}
                       </div>
+
+                      {/* Business Recommendations */}
+                      {businessRecommendations.length > 0 && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                          <h6 className="font-medium text-yellow-800 mb-2 flex items-center space-x-1">
+                            <Lightbulb className="h-4 w-4" />
+                            <span>Recommendations to Complete Booking</span>
+                          </h6>
+                          <div className="space-y-2">
+                            {businessRecommendations.map((rec, index) => (
+                              <div key={index} className="text-sm">
+                                <div className="font-medium text-yellow-900">{rec.name}</div>
+                                <div className="text-yellow-700">{rec.description}</div>
+                                <div className="text-xs text-yellow-600">
+                                  Value: {rec.estimatedValue} • Difficulty: {rec.difficulty}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 

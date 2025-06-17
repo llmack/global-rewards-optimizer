@@ -33,7 +33,9 @@ export const getUserData = (): UserData => {
       return {
         savedCards: [],
         savedFlights: [],
+        savedPrograms: [],
         cardPoints: {},
+        programMiles: {},
         preferences: {
           preferredAirlines: [],
           preferredCabins: []
@@ -48,7 +50,9 @@ export const getUserData = (): UserData => {
     return {
       savedCards: [],
       savedFlights: [],
+      savedPrograms: [],
       cardPoints: {},
+      programMiles: {},
       preferences: {
         preferredAirlines: [],
         preferredCabins: []

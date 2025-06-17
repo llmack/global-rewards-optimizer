@@ -17,6 +17,21 @@ export interface CreditCard {
   bonusTimeframe?: string;
 }
 
+export interface LoyaltyProgram {
+  id: string;
+  name: string;
+  airline: string;
+  currentMiles: number;
+  type: 'airline' | 'hotel';
+  alliance: 'Star Alliance' | 'SkyTeam' | 'Oneworld' | 'None';
+  partners: string[];
+  color: string;
+  description?: string;
+  transferRatio?: string;
+  isOwned?: boolean;
+  isSaved?: boolean;
+}
+
 export interface FlightRoute {
   id: string;
   from: string;
@@ -65,7 +80,9 @@ export interface Airport {
 export interface UserData {
   savedCards: string[];
   savedFlights: string[];
+  savedPrograms: string[];
   cardPoints: Record<string, number>;
+  programMiles: Record<string, number>;
   preferences: {
     preferredAirlines: string[];
     preferredCabins: string[];
@@ -80,7 +97,8 @@ export interface EngagementEvent {
 }
 
 export interface TransferOption {
-  card: CreditCard;
+  card?: CreditCard;
+  program?: LoyaltyProgram;
   canTransfer: boolean;
   availablePoints: number;
   signupBonus: number;
@@ -90,4 +108,15 @@ export interface TransferOption {
   canAffordNow: boolean;
   canAffordWithBonus: boolean;
   coveragePercentage: number;
+  transferRatio: string;
+  finalMiles: number;
+}
+
+export interface TransferRecommendation {
+  type: 'credit_card' | 'loyalty_program';
+  name: string;
+  description: string;
+  pointsNeeded: number;
+  estimatedValue: string;
+  difficulty: 'easy' | 'medium' | 'hard';
 }
