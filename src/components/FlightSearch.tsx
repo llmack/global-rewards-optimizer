@@ -104,6 +104,23 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes }) => {
     return today.toISOString().split('T')[0];
   };
 
+  const handleSearchFlights = () => {
+    trackEngagement({
+      type: 'click',
+      element: 'search_flights_philadelphia',
+      metadata: { from: fromCity, to: toCity, date: travelDate }
+    });
+    
+    // Filter routes based on search criteria or show all Philadelphia area flights
+    const phillyAirports = ['PHL', 'EWR', 'JFK', 'LGA'];
+    const filteredRoutes = routes.filter(route => 
+      phillyAirports.includes(route.from)
+    );
+    
+    // In a real app, this would trigger a new search
+    console.log('Searching flights from Philadelphia area to India');
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <div className="flex items-center space-x-3 mb-6">
@@ -202,10 +219,20 @@ const FlightSearch: React.FC<FlightSearchProps> = ({ routes }) => {
         </div>
       </div>
 
+      <div className="mb-6">
+        <button
+          onClick={handleSearchFlights}
+          className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+        >
+          <Search className="h-5 w-5" />
+          <span>Search Flights from Philadelphia Area</span>
+        </button>
+      </div>
+
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
           <Plane className="h-5 w-5" />
-          <span>Available Routes to India</span>
+          <span>Available Routes from Philadelphia Area</span>
         </h3>
         
         {routes.map((route) => (

@@ -237,7 +237,7 @@ export const indianDestinations: Destination[] = [
 export const flightRoutes: FlightRoute[] = [
   {
     id: '1',
-    from: 'JFK',
+    from: 'PHL',
     to: 'BOM',
     airline: 'Air France',
     date: '2025-01-15',
@@ -250,7 +250,7 @@ export const flightRoutes: FlightRoute[] = [
   },
   {
     id: '2',
-    from: 'LAX',
+    from: 'JFK',
     to: 'DEL',
     airline: 'Singapore Airlines',
     date: '2025-01-12',
@@ -263,7 +263,7 @@ export const flightRoutes: FlightRoute[] = [
   },
   {
     id: '3',
-    from: 'ORD',
+    from: 'EWR',
     to: 'BLR',
     airline: 'Turkish Airlines',
     date: '2025-01-18',
@@ -286,5 +286,31 @@ export const flightRoutes: FlightRoute[] = [
     economyCash: 1450,
     businessCash: 4800,
     availability: 'waitlist'
+  },
+  {
+    id: '5',
+    from: 'LGA',
+    to: 'BOM',
+    airline: 'Delta',
+    date: '2025-01-22',
+    returnDate: '2025-02-05',
+    economyPoints: 88000,
+    businessPoints: 165000,
+    economyCash: 1300,
+    businessCash: 4200,
+    availability: 'good'
+  },
+  {
+    id: '6',
+    from: 'JFK',
+    to: 'GOI',
+    airline: 'United Airlines',
+    date: '2025-01-25',
+    returnDate: '2025-02-08',
+    economyPoints: 92000,
+    businessPoints: 175000,
+    economyCash: 1400,
+    businessCash: 4600,
+    availability: 'limited'
   }
 ];

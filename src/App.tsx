@@ -25,8 +25,19 @@ function App() {
   }, []);
 
   const handleAddCard = (card: CreditCard) => {
+    // Check if card is already in portfolio
+    const existingCard = userCards.find(existingCard => existingCard.id === card.id);
+    if (existingCard) {
+      // Card already exists, don't add duplicate
+      return;
+    }
+    
     const newCard = { ...card, isOwned: true };
     setUserCards(prev => [...prev, newCard]);
+  };
+
+  const handleRemoveCard = (cardId: string) => {
+    setUserCards(prev => prev.filter(card => card.id !== cardId));
   };
 
   const handleUpdateCardPoints = (cardId: string, points: number) => {
@@ -36,6 +47,11 @@ function App() {
       )
     );
   };
+
+  // Filter flights to only show those from major East Coast airports
+  const eastCoastFlights = flightRoutes.filter(route => 
+    ['PHL', 'EWR', 'JFK', 'LGA'].includes(route.from)
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -50,12 +66,16 @@ function App() {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Your Credit Card Portfolio</h2>
               <p className="text-gray-600">Manage your cards and track available points</p>
             </div>
-            <CreditCardGrid cards={userCards} onUpdateCard={handleUpdateCardPoints} />
+            <CreditCardGrid 
+              cards={userCards} 
+              onUpdateCard={handleUpdateCardPoints}
+              onRemoveCard={handleRemoveCard}
+            />
           </section>
         )}
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          <FlightSearch routes={flightRoutes} />
+          <FlightSearch routes={eastCoastFlights} />
           <DestinationGuide destinations={indianDestinations} />
         </div>
 

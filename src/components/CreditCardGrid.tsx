@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard as CreditCardType } from '../types';
-import { CreditCard, TrendingUp, Gift, Edit3, Save, X } from 'lucide-react';
+import { CreditCard, TrendingUp, Gift, Edit3, Save, X, Trash2 } from 'lucide-react';
 import { saveUserData, getUserData, trackEngagement } from '../utils/storage';
 
 interface CreditCardGridProps {
   cards: CreditCardType[];
   onUpdateCard: (cardId: string, points: number) => void;
+  onRemoveCard: (cardId: string) => void;
 }
 
-const CreditCardGrid: React.FC<CreditCardGridProps> = ({ cards, onUpdateCard }) => {
+const CreditCardGrid: React.FC<CreditCardGridProps> = ({ cards, onUpdateCard, onRemoveCard }) => {
   const [editingCard, setEditingCard] = useState<string | null>(null);
   const [editPoints, setEditPoints] = useState<string>('');
   const [cardPoints, setCardPoints] = useState<Record<string, number>>({});
@@ -67,6 +68,22 @@ const CreditCardGrid: React.FC<CreditCardGridProps> = ({ cards, onUpdateCard }) 
     setEditPoints('');
   };
 
+  const handleRemoveCard = (cardId: string) => {
+    trackEngagement({
+      type: 'click',
+      element: 'remove_card',
+      metadata: { cardId }
+    });
+    
+    // Remove from local storage as well
+    const newCardPoints = { ...cardPoints };
+    delete newCardPoints[cardId];
+    setCardPoints(newCardPoints);
+    saveUserData({ cardPoints: newCardPoints });
+    
+    onRemoveCard(cardId);
+  };
+
   const getDisplayPoints = (card: CreditCardType) => {
     return cardPoints[card.id] !== undefined ? cardPoints[card.id] : card.currentPoints;
   };
@@ -82,7 +99,15 @@ const CreditCardGrid: React.FC<CreditCardGridProps> = ({ cards, onUpdateCard }) 
             key={card.id}
             className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
           >
-            <div className={`bg-gradient-to-r ${card.color} p-6 text-white`}>
+            <div className={`bg-gradient-to-r ${card.color} p-6 text-white relative`}>
+              <button
+                onClick={() => handleRemoveCard(card.id)}
+                className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-full transition-colors"
+                title="Remove card from portfolio"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+              
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-2">
                   <span className="text-2xl">{getCardIcon(card.type)}</span>

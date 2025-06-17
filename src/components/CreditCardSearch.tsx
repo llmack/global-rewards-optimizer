@@ -19,6 +19,20 @@ const CreditCardSearch: React.FC<CreditCardSearchProps> = ({ onAddCard }) => {
     setSavedCards(userData.savedCards);
   }, []);
 
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showModal) {
+        setShowModal(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [showModal]);
+
   const filteredCards = availableCreditCards.filter(card =>
     card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     card.bank.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -63,6 +77,11 @@ const CreditCardSearch: React.FC<CreditCardSearchProps> = ({ onAddCard }) => {
     
     onAddCard(card);
     setShowModal(false);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedCard(null);
   };
 
   const formatPoints = (points: number) => points.toLocaleString();
@@ -184,8 +203,9 @@ const CreditCardSearch: React.FC<CreditCardSearchProps> = ({ onAddCard }) => {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900">{selectedCard.name}</h2>
                 <button
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCloseModal}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Close (ESC)"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -271,6 +291,12 @@ const CreditCardSearch: React.FC<CreditCardSearchProps> = ({ onAddCard }) => {
                   >
                     <Heart className={`h-5 w-5 ${savedCards.includes(selectedCard.id) ? 'fill-current' : ''}`} />
                     <span>{savedCards.includes(selectedCard.id) ? 'Saved' : 'Save'}</span>
+                  </button>
+                  <button
+                    onClick={handleCloseModal}
+                    className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Close
                   </button>
                 </div>
               </div>
